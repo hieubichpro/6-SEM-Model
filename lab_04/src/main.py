@@ -1,65 +1,57 @@
+from math import ceil
 import numpy as np
-from dataclasses import dataclass
 import matplotlib.pyplot as plt
+from mpl_toolkits import mplot3d
 from copy import copy
 
 EPS = 1e-4
 
-curr_count = 1
+Fo_is_const = False
 
-is_f0_const = False
-
-
-# is_f0_const = True
-
-
-@dataclass
 class TaskOps:
     """
     Класс параметров задачи
     """
-    # константы лабы
-    k0: int | float = 1.0  # ок
-    a1: int | float = 0.0134  # ок
-    b1: int | float = 1  # ок
-    c1: int | float = 4.35e-4  # ок
-    m1: int | float = 1  # ок
-    a2: int | float = 2.049  # ок
-    b2: int | float = 0.563e-3  # ок
-    c2: int | float = 0.528e5  # ок
-    m2: int | float = 1  # ок
-    l: int | float = 10  # ок
-    t0: int | float = 300  # ок
-    r: int | float = 0.5  # ок
+    k0 = 1.0  
+    a1 = 0.0134  
+    b1 = 1  
+    c1 = 4.35e-4  
+    m1 = 1  
+    a2 = 2.049  
+    b2 = 0.563e-3  
+    c2 = 0.528e5  
+    m2 = 1  
+    l = 10  
+    t0 = 300  
+    r = 0.5  
 
-    alpha_0: int | float = 0.05  # ок в x = 0
-    alpha_n: int | float = 0.01  # ок в x = l
+    alpha_0 = 0.05   # x = 0
+    alpha_n = 0.01   # x = l
 
-    d: int | float = 0.01 * l / (-0.04)  # ок
-    c: int | float = -0.05 * d  # ок
+    d = 0.01 * l / (-0.04)  
+    c = -0.05 * d  
 
-    # для отладки принять
-    f_max: int | float = 50  # ок
-    t_max: int | float = 5  # ок
+    # для отладки
+    f_max = 50  
+    t_max = 60
 
 
-@dataclass
 class Grid:
     """
     Класс -- хранитель числа узлов, шагов по каждой переменной
-    (сетка, крч)
     """
-    a: int | float
-    b: int | float
-    n: int
-    h: int | float
-    time0: int | float
-    timem: int | float
-    m: int
-    tau: int | float
+    def __init__(self, a, b, n, h, time0, timem, m, tau):
+        self.a = a
+        self.b = b
+        self.n = n
+        self.h = h
+        self.time0 = time0
+        self.timem = timem
+        self.m = m
+        self.tau = tau
 
 
-def alpha(x, ops: TaskOps):
+def alpha(x, ops):
     """
     Функция альфа (вроде правильно)
     """
@@ -68,7 +60,7 @@ def alpha(x, ops: TaskOps):
     return c / (x - d)
 
 
-def _lambda(t, ops: TaskOps):
+def _lambda(t, ops):
     """
     Функция λ(T) (вроде правильно)
     """
@@ -77,7 +69,7 @@ def _lambda(t, ops: TaskOps):
     return a1 * (b1 + c1 * t ** m1)
 
 
-def _c(t, ops: TaskOps):
+def _c(t, ops):
     """
     Функция c(T) (вроде правильно)
     """
@@ -86,7 +78,7 @@ def _c(t, ops: TaskOps):
     return a2 + b2 * t ** m2 - (c2 / (t ** 2))
 
 
-def k(t, ops: TaskOps):
+def k(t, ops):
     """
     Функция k(T) (вроде правильно)
     """
@@ -95,28 +87,18 @@ def k(t, ops: TaskOps):
     return k0 * (t / 300) ** 2
 
 
-def f0(time, ops: TaskOps):
+def f0(t, ops):
     """
     Функция потока излучения F0(t) при x = 0 (вроде правильно)
     """
-    f_max, t_max = ops.f_max, ops.t_max
-
-    if is_f0_const:
+    if Fo_is_const:
         return 10
-
-    # h = t_max * 3.5
-    #
-    # if time < h:
-    #     return (f_max / t_max) * time * np.exp(-((time / t_max) - 1))
-    # else:
-    #     coef = time // h
-    #     t = time - h * coef
-    #     return (f_max / t_max) * t * np.exp(-((t / t_max) - 1))
-
-    return (f_max / t_max) * time * np.exp(-((time / t_max) - 1))
+        
+    f_max, t_max = ops.f_max, ops.t_max
+    return (f_max / t_max) * t * np.exp(-((t / t_max) - 1))
 
 
-def p(x, ops: TaskOps):
+def p(x, ops):
     """
     Функция p(u) для исходного уравнения (вроде правильно)
     """
@@ -125,7 +107,7 @@ def p(x, ops: TaskOps):
     return (2 / r) * alpha(x, ops)
 
 
-def f(x, time, t, ops: TaskOps):
+def f(x, time, t, ops):
     """
     Функция f(T) для исходного уравнения
     t = t(x, time) (вроде правильно)
@@ -135,7 +117,7 @@ def f(x, time, t, ops: TaskOps):
     return k(t, ops) * f0(time, ops) * np.exp(-k(t, ops) * x) + (2 * t0 / r) * alpha(x, ops)
 
 
-def kappa(t1, t2, ops: TaskOps):
+def kappa(t1, t2, ops):
     """
     Функция каппа (вычисляется с использованием метода средних)
     """
@@ -143,7 +125,7 @@ def kappa(t1, t2, ops: TaskOps):
     return (_lambda(t1, ops) + _lambda(t2, ops)) / 2
 
 
-def left_boundary_condition(_t_m, __t_m, curr_time, data: Grid, ops: TaskOps):
+def left_boundary_condition(_t_m, __t_m, curr_time, data, ops):
     """
     Левое краевое условие прогонки
     """
@@ -168,7 +150,7 @@ def left_boundary_condition(_t_m, __t_m, curr_time, data: Grid, ops: TaskOps):
     return k_0, m_0, p_0
 
 
-def right_boundary_condition(_t_m, __t_m, curr_time, data: Grid, ops: TaskOps):
+def right_boundary_condition(_t_m, __t_m, curr_time, data, ops):
     """
     Правое краевое условие прогонки
     """
@@ -193,7 +175,7 @@ def right_boundary_condition(_t_m, __t_m, curr_time, data: Grid, ops: TaskOps):
     return k_n, m_n, p_n
 
 
-def right_sweep(_t_m, __t_m, curr_time, data: Grid, ops: TaskOps):
+def right_progonka(_t_m, __t_m, curr_time, data, ops):
     """
     Реализация правой прогонки
     """
@@ -231,17 +213,17 @@ def right_sweep(_t_m, __t_m, curr_time, data: Grid, ops: TaskOps):
     return u
 
 
-def simple_iteration_on_layer(t_m, curr_time, data: Grid, ops: TaskOps):
+def simple_iteration_on_layer(t_m, curr_time, data, ops):
     """
     Вычисляет значение искомой функции (функции T) на слое t_m_plus_1
     """
-    _t_m = t_m  # предыдущие (без крышки)
-    __t_m = t_m  # текущие (с крышкой)
+    _t_m = t_m  # предыдущие 
+    __t_m = t_m  # текущие ? итер
 
     while True:
         # цикл подсчета значений функции T методом простых итераций для
         # слоя t_m_plus_1
-        t_m_plus_1 = right_sweep(_t_m, __t_m, curr_time, data, ops)
+        t_m_plus_1 = right_progonka(_t_m, __t_m, curr_time, data, ops)
 
         cnt = 0
 
@@ -258,7 +240,7 @@ def simple_iteration_on_layer(t_m, curr_time, data: Grid, ops: TaskOps):
     return t_m_plus_1
 
 
-def simple_iteration(data: Grid, ops: TaskOps):
+def simple_iteration(data, ops):
     """
     Реализация метода простых итераций для решения нелинейной системы уравнений
     """
@@ -283,7 +265,7 @@ def simple_iteration(data: Grid, ops: TaskOps):
     return np.array(x), np.array(times), np.array(t_res)
 
 
-def get_optimal_h(data: Grid, ops: TaskOps):
+def get_optimal_h(data, ops):
     """
     Метод для получения оптимального шага по координате
     """
@@ -320,12 +302,12 @@ def get_optimal_h(data: Grid, ops: TaskOps):
     return h
 
 
-def get_optimal_tau(data: Grid, ops: TaskOps):
+def get_optimal_tau(data, ops):
     """
     Метод для получения оптимального шага по времени
     """
     print(f"[+] вызвал get_optimal_tau")
-    tau = 5  # начальный шаг по координате
+    tau = 5  # начальный шаг по времени
 
     count = 0
     while True:
@@ -362,7 +344,7 @@ def get_optimal_tau(data: Grid, ops: TaskOps):
     return tau
 
 
-def task2_f_max_t_max_by_x(data: Grid, ops: TaskOps):
+def task2_f_max_t_max_by_x(data, ops):
     """
     2-й пункт лабы, разбил функцию на две (срез по координате)
     """
@@ -400,7 +382,7 @@ def task2_f_max_t_max_by_x(data: Grid, ops: TaskOps):
     plt.savefig(f"../data/F_max_t_max_by_x.png")
 
 
-def task2_f_max_t_max_by_t(data: Grid, ops: TaskOps):
+def task2_f_max_t_max_by_t(data, ops):
     """
     2-й пункт лабы, разбил функцию на две (срез по времени)
     """
@@ -437,7 +419,7 @@ def task2_f_max_t_max_by_t(data: Grid, ops: TaskOps):
     plt.savefig(f"../data/F_max_t_max_by_t.png")
 
 
-def get_optimal_steps_by_f_max_t_max(data: Grid, ops: TaskOps):
+def get_optimal_steps_by_f_max_t_max(data, ops):
     """
     Функция находит оптимальные шаги для различных F_max и t_max
     """
@@ -472,15 +454,13 @@ def get_optimal_steps_by_f_max_t_max(data: Grid, ops: TaskOps):
     file.close()
 
 
-def task2_integral(data: Grid, ops: TaskOps):
-    """
-    Реализация вычисления интеграла во 2-м пункте методом трапеций
-    (ссылка: https://ru.wikipedia.org/wiki/Метод_трапеций)
-    """
-    x, t, t_res = simple_iteration(data, ops)  # получили решение
-    ind_t_m = -1  # получаем индекс времени для t_m
+def task2_integral(data, ops):
 
-    eps = 1e-2  # другая своя точность
+    x, t, t_res = simple_iteration(data, ops)  
+
+    ind_t_m = -1 
+
+    eps = 1e-2 
 
     t0, r = ops.t0, ops.r
     a, b, h = data.a, data.b, data.h
@@ -505,24 +485,20 @@ def task2_integral(data: Grid, ops: TaskOps):
 
         lower_integral += 0.5 * (first + second) * h
 
-    numerator = -f_0_value + f_n_value + (2 / r) * upper_integral  # числитель дроби
-    denominator = f0(t[-1], ops) * lower_integral  # знаменатель дроби
+    numerator = -f_0_value + f_n_value + (2 / r) * upper_integral 
+    denominator = f0(t[-1], ops, data) * lower_integral  
 
     accuracy = abs(numerator / denominator - 1)
     print(f"accuracy = {accuracy}")
 
     if accuracy <= eps:
-        print(f"все классно, мощность сбалансирована!")
+        print(f"мощность сбалансирована!")
     else:
         print(f"мощность не сбалансирована!")
 
 
-def task3_a2_b2(data: Grid, ops: TaskOps):
-    """
-    3-й пункт лабы, изменение параметров a2 и b2 (срезы по координате)
-    """
-    print(f"[+] вызвал task3_a2_b2")
-    # 2 значения -- по условию
+def task3_a2_b2(data, ops):
+
     a2_list = [1, 2.049, 5]
     b2_list = [0.563e-3, 0.6e-2]
 
@@ -546,111 +522,197 @@ def task3_a2_b2(data: Grid, ops: TaskOps):
             print(f"итерация №{cnt + 1}")
             cnt += 1
 
-    plt.savefig(f"../data/a2_b2_by_x.png")
+    plt.savefig(f"../img/a2_b2_by_x.png")
 
 
-def main() -> None:
-    """
-    Главная функция
-    """
+# Рассмотреть влияние на получаемые результаты амплитуды импульса Fmax и времени maxt
+# (определяют крутизну фронтов и длительность импульса).
+def research_by_Fmax_tmax(data, ops):
+    # сильнее нагревается
+    def by_x():
+        q = 0
+        for i, Fmax in enumerate(Fmax_array):
+            for j, tmax in enumerate(tmax_array):
+                title = f"Fmax={Fmax}, tmax={tmax}"
+                plt.subplot(len(Fmax_array), len(tmax_array), i * len(tmax_array) + j + 1)
+                q+=1
+
+                ops.f_max = Fmax
+                ops.t_max = tmax
+                x, time, t =simple_iteration(data, ops)
+                
+                for idx_x in [0, len(x) // 4, len(x) // 2, len(x) - 1]:
+                    # dop_title += x[idx_x] + " "
+                    T_t = [T_m[idx_x] for T_m in t]
+                    plt.xticks(list(range(0, 100, 10)))
+                    plt.xlabel("t, c")
+                    plt.ylim((300, 700))
+                    plt.grid()
+                    plt.plot(time, T_t, label=title + f" x = {x[idx_x]} (cm)")
+                plt.legend()
+
+                print(f'Fmax={Fmax}, tmax={tmax}')
+        plt.savefig(f"../img/Fmaxtmax_cm.png")
+        plt.show()
+
+    def by_t():
+        q = 0
+        for i, Fmax in enumerate(Fmax_array):
+            for j, tmax in enumerate(tmax_array):
+                title = f"Fmax={Fmax} tmax={tmax}"
+                plt.subplot(len(Fmax_array), len(tmax_array), i * len(tmax_array) + j + 1)
+                q+=1
+
+                ops.f_max = Fmax
+                ops.t_max = tmax
+                x, time, t =simple_iteration(data, ops)
+
+                for idx_t in [0, len(time) // 4, len(time) // 2, len(time) - 1]:
+                    T_t = t[idx_t]
+                    plt.xticks(list(range(0, 10, 1)))
+                    plt.xlabel("x, cm")
+                    plt.ylim((300, 750))
+                    plt.grid()
+                    plt.plot(x, T_t, label=title+f' t={time[idx_t]} (s)')
+                plt.legend()
+
+                print(f'Fmax={Fmax}, tmax={tmax}')
+        plt.savefig(f"../img/Fmaxtmax_t.png")
+        plt.show()
+
+    Fmax_array = [40, 50, 60]
+    tmax_array = [50, 60, 70]
+    by_t()
+    by_x()
+
+def study4_impuls():
     ops = TaskOps()
 
     a, b = 0, ops.l  # диапазон значений координаты
     n = 100
     h = (b - a) / n
 
-    t_max = 100
-    time0, timem = 0, t_max  # диапазон значений времени
-    m = 15000
+    time0, timem = 0, ops.t_max  # диапазон значений времени
+    m = 6000
     tau = (timem - time0) / m
 
-    print(f"tau = {tau}, h = {h}")
+    in_row = 3
+
+    # v_array = [0.01, 0.05, 0.1, 1, 3, 5]
+    v_array = [0.01, 0.05, 0.1]
+    for i, v in enumerate(v_array):
+        data = Grid(a, b, n, h, time0, timem, m, tau, v)
+        title = f"v={v}"
+        print(title, data.period_by_m)
+        plt.subplot(ceil(len(v_array) / in_row), in_row, i + 1)
+
+        x, time, t = simple_iteration(data, ops)
+
+
+        T_0t = [T_m[0] for T_m in t]
+        plt.xticks(list(range(data.time0, data.timem, int((data.timem - data.time0) / 10))))
+        plt.plot(time, T_0t, label=title)
+        plt.legend()
+
+    plt.savefig(f"v.png")
+    plt.show()
+
+def main():
+
+    ops = TaskOps()
+
+    a, b = 0, ops.l  # диапазон значений координаты
+    n = 200
+    h = (b - a) / n
+
+    time0, timem = 0, 100  # диапазон значений времени
+    m = 200
+    tau = (timem - time0) / m
+
+    # print(f"tau = {tau}, h = {h}")
 
     data = Grid(a, b, n, h, time0, timem, m, tau)
 
     """Задание №1"""
-
-    # x, t, t_res = simple_iteration(data, ops)
-    #
-    # X, T = np.meshgrid(x, t)
-    #
-    # # Построение графика
-    # fig = plt.figure()
-    # ax = fig.add_subplot(111, projection='3d')
-    # ax.plot_surface(X, T, t_res, cmap='viridis')
-    #
-    # # Настройка подписей осей
-    # ax.set_xlabel('x')
-    # ax.set_ylabel('t')
-    # ax.set_zlabel('T(x, t)')
-    # ax.set_title('Температурное поле')
-    #
-    # plt.show()
+    x, t, t_res = simple_iteration(data, ops)
+    X, T = np.meshgrid(x, t)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot_surface(X, T, t_res, cmap="seismic")
+    
+    ax.set_xlabel('x')
+    ax.set_ylabel('t')
+    ax.set_zlabel('T(x, t)')
+    ax.set_title('Температурное поле')
+    
+    plt.show()
 
     """Задание №2"""
 
     # get_optimal_steps_by_f_max_t_max(data, copy(ops))
 
-    # opt_h = get_optimal_h(data, copy(ops))  # 0.0025.
+    # opt_h = get_optimal_h(data, copy(ops))  # 0.0025
     # print(f"opt_h = {opt_h}")
     # opt_tau = get_optimal_tau(data, copy(ops))  # 1.25
     # print(f"opt_tau = {opt_tau}")
-    #
+    
     # data.h, data.tau = opt_h, opt_tau
-    #
+    # data.h, data.tau = 0.0025, 1.25
+    # research_by_Fmax_tmax(data, copy(ops))
     # task2_integral(data, copy(ops))
 
     """Задание №3"""
 
-    # task3_a2_b2(data, copy(ops))
+    task3_a2_b2(data, copy(ops))
 
     """Задание №4"""
-
+    # study4_impuls()
     # Создание нового окна для двумерных графиков
-    fig2, axes = plt.subplots(2, 3, figsize=(13, 10))
+    # fig2, axes = plt.subplots(2, 3, figsize=(13, 10))
 
-    t_f0 = np.arange(time0, t_max + tau, tau)
+    # t_f0 = np.arange(time0, t_max + tau, tau)
 
-    res = []
-    for curr_t in t_f0:
-        res.append(f0(curr_t, copy(ops)))
+    # res = []
+    # for curr_t in t_f0:
+    #     res.append(f0(curr_t, copy(ops)))
 
-    # Построение двумерных графиков
-    axes[0, 0].plot(t_f0, res, 'g', label="F0(t)")
-    axes[0, 0].set_title('График F0')
-    axes[0, 0].set_xlabel('t')
-    axes[0, 0].set_ylabel('F0')
-    axes[0, 0].legend()
-    axes[0, 0].grid()
+    # # Построение двумерных графиков
+    # axes[0, 0].plot(t_f0, res, 'g', label="F0(t)")
+    # axes[0, 0].set_title('График F0')
+    # axes[0, 0].set_xlabel('t')
+    # axes[0, 0].set_ylabel('F0')
+    # axes[0, 0].legend()
+    # axes[0, 0].grid()
 
-    x, t, t_res = simple_iteration(data, copy(ops))
+    # x, t, t_res = simple_iteration(data, copy(ops))
 
-    res = []
-    for t_m in t_res:
-        res.append(t_m[0])
+    # res = []
+    # for t_m in t_res:
+    #     res.append(t_m[0])
 
-    # Построение двумерных графиков
-    axes[0, 1].plot(t, res, 'g', label=f"T(0, t)")
-    axes[0, 1].set_title('График T')
-    axes[0, 1].set_xlabel('t')
-    axes[0, 1].set_ylabel('T(0, t)')
-    axes[0, 1].legend()
-    axes[0, 1].grid()
+    # # Построение двумерных графиков
+    # axes[0, 1].plot(t, res, 'g', label=f"T(0, t)")
+    # axes[0, 1].set_title('График T')
+    # axes[0, 1].set_xlabel('t')
+    # axes[0, 1].set_ylabel('T(0, t)')
+    # axes[0, 1].legend()
+    # axes[0, 1].grid()
 
     # res, a2_list = get_data_graph_task_3(data, ops)
-    #
+    
     # for i, res_i in enumerate(res):
-    #     axes[0, 1].plot(t, res_i[:-1], label=f"T(0, t), a2 = {a2_list[i]}")
+    #     axes[0, 1].plot(t, res_i, label=f"T(0, t), a2 = {a2_list[i]}")
     # axes[0, 1].set_title('График T(0, t)')
     # axes[0, 1].set_xlabel('t')
     # axes[0, 1].set_ylabel('T(0, t)')
     # axes[0, 1].legend()
     # axes[0, 1].grid()
-    # #
+    # # #
     # res, b2_list = get_data_graph_task_3_2(data, ops)
-    #
+    # #
     # for i, res_i in enumerate(res):
-    #     axes[0, 2].plot(t, res_i[:-1], label=f"T(0, t), b2 = {b2_list[i]}")
+    #     axes[0, 2].plot(t, res_i, label=f"T(0, t), b2 = {b2_list[i]}")
     # axes[0, 2].set_title('График T(0, t)')
     # axes[0, 2].set_xlabel('t')
     # axes[0, 2].set_ylabel('T(0, t)')
@@ -663,21 +725,21 @@ def main() -> None:
     # time0, timem = 0, ops.t_max  # диапазон значений времени
     # m = ops.t_max
     # tau = (timem - time0) / m
-    #
+    
     # data = Grid(a, b, n, h, time0, timem, m, tau)
-    #
-    # t_res = np.array(simple_iteration(data, ops))[:-1]
+    
+    # xtemp, ttemp, t_res = simple_iteration(data, ops)
 
     # for i, res_i in enumerate(t_res):
-    #     axes[1, 0].plot(x, res_i, label=f"T(x, t), t = {t[i]}")
+    #     axes[1, 0].plot(xtemp, res_i, label=f"T(x, t), t = {ttemp[i]}")
     # axes[1, 0].set_title('График T(x, t)')
-    # axes[1, 0].set_xlabel('t')
+    # axes[1, 0].set_xlabel('x')
     # axes[1, 0].set_ylabel('T(x, t)')
     # axes[1, 0].legend()
     # axes[1, 0].grid()
 
-    # Показать график
-    plt.show()
+    # # Показать график
+    # plt.show()
 
 
 if __name__ == '__main__':
